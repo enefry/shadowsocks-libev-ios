@@ -1647,6 +1647,13 @@ main(int argc, char **argv)
 
 #else
 
+// Callback to be invoked on pthread_cancel.
+void pthread_cleanup_cb(void *arg)
+{
+  struct ev_loop *loop = (struct ev_loop *)arg;
+  ev_unloop(loop, EVUNLOOP_ALL);
+}
+
 int start_ss_local_server(profile_t profile, shadowsocks_cb cb, void *data)
 {
     srand(time(NULL));
@@ -1785,8 +1792,12 @@ int start_ss_local_server(profile_t profile, shadowsocks_cb cb, void *data)
     // Init connections
     cork_dllist_init(&connections);
 
+    cb(listen_ctx.fd, data);
+
+    pthread_cleanup_push(pthread_cleanup_cb, loop);
     // Enter the loop
     ev_run(loop, 0);
+    pthread_cleanup_pop(1);
 
     if (verbose) {
         LOGI("closed gracefully");
